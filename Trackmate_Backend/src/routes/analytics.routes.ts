@@ -184,4 +184,100 @@ router.get(
     }
 );
 
+// ─── AI Predictive Risk Modeling (Mock for Hackathon) ───────────────────
+
+router.get(
+    '/predictive',
+    authenticate,
+    requireRole(UserRole.AUTHORITY, UserRole.ADMIN),
+    async (_req: AuthRequest, res: Response, next) => {
+        try {
+            // In a real scenario, this would call an ML model endpoint (e.g., Python/Flask)
+            // returning clustered risk coordinates based on historical incident density.
+            // For the hackathon, we'll generate high-probability risk coordinates near existing 'high' risk zones.
+            
+            const highRiskZones = await Zone.find({ is_active: true, risk_level: { $in: ['high', 'restricted'] } }).lean();
+            
+            const predictions = highRiskZones.map(zone => {
+                // Generate a slightly offset coordinate to simulate a "growing" or "shifting" risk area
+                const latOffset = (Math.random() - 0.5) * 0.01;
+                const lngOffset = (Math.random() - 0.5) * 0.01;
+                return {
+                    id: `pred_${zone._id}`,
+                    reason: `High concentration of recent anomalies near ${zone.name}`,
+                    confidence: Math.floor(Math.random() * 25) + 70, // 70 to 95%
+                    latitude: zone.center_lat + latOffset,
+                    longitude: zone.center_lng + lngOffset,
+                    radius_meters: Math.floor(Math.random() * 300) + 200, // 200-500m
+                };
+            });
+
+            // Add one random generic prediction for demo purposes
+            predictions.push({
+                id: `pred_random_${Math.random()}`,
+                reason: `AI detected unusual nighttime movement patterns`,
+                confidence: 88,
+                latitude: 27.5890,
+                longitude: 91.8680,
+                radius_meters: 450,
+            });
+
+            res.json({
+                success: true,
+                data: predictions,
+            });
+        } catch (err) {
+            next(err);
+        }
+    }
+);
+
+// ─── Ward-specific analytics summary ─────────────────────────────────
+
+router.get(
+    '/ward/:id',
+    authenticate,
+    async (req: AuthRequest, res: Response, next) => {
+        try {
+            const wardId = req.params.id;
+            const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+            // If wardId is 'general', we can return some global or default stats
+            if (wardId === 'general') {
+                const totalResidents = await Profile.countDocuments({ role: UserRole.RESIDENT, is_active: true });
+                const activeTourists = await LocationLog.distinct('user', { recorded_at: { $gte: hourAgo } });
+                
+                return res.json({
+                    success: true,
+                    data: {
+                        safety_score: 95,
+                        resident_count: totalResidents,
+                        tourist_count: activeTourists.length,
+                    }
+                });
+            }
+
+            const [residentCount, activeTourists, activeIncidents] = await Promise.all([
+                Profile.countDocuments({ ward: wardId, role: UserRole.RESIDENT, is_active: true }),
+                LocationLog.distinct('user', { current_ward: wardId, recorded_at: { $gte: hourAgo } }),
+                Incident.countDocuments({ ward: wardId, status: { $in: ['active', 'acknowledged', 'assigned'] } }),
+            ]);
+
+            // Simple safety score formula: starts at 100, drops per active incident
+            const safety_score = Math.max(0, 100 - activeIncidents * 10);
+
+            res.json({
+                success: true,
+                data: {
+                    safety_score,
+                    resident_count: residentCount,
+                    tourist_count: activeTourists.length,
+                },
+            });
+        } catch (err) {
+            next(err);
+        }
+    }
+);
+
 export default router;

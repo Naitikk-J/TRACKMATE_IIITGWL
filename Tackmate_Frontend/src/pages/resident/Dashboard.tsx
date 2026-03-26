@@ -3,7 +3,7 @@ import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { Link } from 'react-router-dom';
-import { Shield, AlertTriangle, Clock, TrendingUp, Plus, Navigation, Layers, Activity, Loader2, Users } from 'lucide-react';
+import { Shield, AlertTriangle, TrendingUp, Plus, Navigation, Layers, Activity, Loader2, Users, MapPin } from 'lucide-react';
 import AlertPanel from '../../components/alerts/AlertPanel';
 
 const NB = { black: '#FFFBF0', yellow: '#FFE500', red: '#FF3B3B', blue: '#2B6FFF', mint: '#00D084', orange: '#FF7A00', cream: '#0A0A0A', white: '#111111' };
@@ -28,6 +28,8 @@ export default function ResidentDashboard() {
         });
       }
       return () => { clearInterval(interval); if (socket) socket.off('new-incident'); };
+    } else {
+      setLoading(false);
     }
   }, [user, socket]);
 
@@ -52,6 +54,19 @@ export default function ResidentDashboard() {
   );
 
   const score = analytics?.safety_score || 85;
+
+  if (!user?.ward) return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, background: NB.cream, textAlign: 'center' }}>
+      <div style={{ width: 80, height: 80, background: NB.white, border: `3px solid ${NB.black}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24, boxShadow: `6px 6px 0 ${NB.black}` }}>
+        <MapPin size={40} color={NB.orange} />
+      </div>
+      <h2 style={{ fontWeight: 800, color: NB.black, marginBottom: 12 }}>Ward Not Assigned</h2>
+      <p style={{ color: '#6B6B6B', maxWidth: 400, lineHeight: 1.6, marginBottom: 32 }}>Your account is not linked to a specific ward yet. Link your ward in settings to receive local alerts and community vitals.</p>
+      <Link to="/resident/profile" style={{ background: NB.yellow, border: `3px solid ${NB.black}`, boxShadow: `4px 4px 0 ${NB.black}`, padding: '12px 24px', fontWeight: 800, textDecoration: 'none', color: NB.black, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        Complete Profile
+      </Link>
+    </div>
+  );
 
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: 24, background: NB.cream, fontFamily: "'Space Grotesk', sans-serif", paddingBottom: 80 }}>

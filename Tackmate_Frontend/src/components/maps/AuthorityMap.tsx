@@ -5,6 +5,10 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import type { ZoneData } from './TouristMap';
 
+import MarkerClusterGroup from 'react-leaflet-cluster';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+
 // Fix for default marker icons in React Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -21,6 +25,14 @@ const incidentIcon = new L.Icon({
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
   shadowSize: [41, 41]
+});
+
+// Create custom divIcon for users to keep the Neo-brutalism dot look inside clusters
+const createUserIcon = (color: string) => L.divIcon({
+  className: 'custom-user-marker',
+  html: `<div style="background-color: ${color}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 3px rgba(0,0,0,0.5);"></div>`,
+  iconSize: [14, 14],
+  iconAnchor: [7, 7]
 });
 
 const RISK_COLORS: Record<string, string> = {
@@ -56,12 +68,14 @@ interface AuthorityMapProps {
   userLocations: Record<string, { lat: number; lng: number; role?: string; name?: string; timestamp?: number }>;
   focusLocation?: { lat: number; lng: number } | null;
   onZoneCreated?: (layer: any) => void;
+  predictions?: any[];
 }
 
-export default function AuthorityMap({ zones, incidents, userLocations, focusLocation, onZoneCreated }: AuthorityMapProps) {
+export default function AuthorityMap({ zones, incidents, userLocations, focusLocation, onZoneCreated, predictions }: AuthorityMapProps) {
   const safeZones = zones || [];
   const safeIncidents = incidents || [];
   const safeUserLocations = userLocations || {};
+  const safePredictions = predictions || [];
 
   const defaultCenter: [number, number] = [27.5866, 91.8698]; // Tawang
 
@@ -112,29 +126,30 @@ export default function AuthorityMap({ zones, incidents, userLocations, focusLoc
           );
         })}
 
-        {/* Real-time User Locations */}
-        {Object.entries(safeUserLocations).map(([userId, loc]) => {
-          if (typeof loc.lat !== 'number' || typeof loc.lng !== 'number') return null;
-          // Check if active (within last 5 mins)
-          const isActive = loc.timestamp ? (Date.now() - loc.timestamp) < 5 * 60 * 1000 : true;
-          if (!isActive) return null;
+        {/* Real-time User Locations Grouped */}
+        <MarkerClusterGroup chunkedLoading maxClusterRadius={35}>
+          {Object.entries(safeUserLocations).map(([userId, loc]) => {
+            if (typeof loc.lat !== 'number' || typeof loc.lng !== 'number') return null;
+            // Check if active (within last 5 mins)
+            const isActive = loc.timestamp ? (Date.now() - loc.timestamp) < 5 * 60 * 1000 : true;
+            if (!isActive) return null;
 
-          const color = loc.role === 'tourist' ? '#22c55e' : (loc.role === 'resident' ? '#3b82f6' : '#94a3b8');
-          
-          return (
-            <CircleMarker 
-              key={userId}
-              center={[loc.lat, loc.lng]} 
-              radius={6}
-              pathOptions={{ fillColor: color, color: '#fff', weight: 1.5, fillOpacity: 0.9 }}
-            >
-              <Tooltip direction="top" offset={[0, -10]} opacity={1}>
-                <div className="text-xs font-bold">{loc.name || 'User'}</div>
-                <div className="text-[9px] uppercase tracking-wider opacity-80">{loc.role || 'Unknown'}</div>
-              </Tooltip>
-            </CircleMarker>
-          );
-        })}
+            const color = loc.role === 'tourist' ? '#22c55e' : (loc.role === 'resident' ? '#3b82f6' : '#94a3b8');
+            
+            return (
+              <Marker 
+                key={userId}
+                position={[loc.lat, loc.lng]} 
+                icon={createUserIcon(color)}
+              >
+                <Tooltip direction="top" offset={[0, -10]} opacity={1}>
+                  <div className="text-xs font-bold">{loc.name || 'User'}</div>
+                  <div className="text-[9px] uppercase tracking-wider opacity-80">{loc.role || 'Unknown'}</div>
+                </Tooltip>
+              </Marker>
+            );
+          })}
+        </MarkerClusterGroup>
 
         {/* Incidents (SOS, Anomalies) */}
         {safeIncidents.filter(i => i.status !== 'resolved').map((incident) => {
@@ -163,6 +178,32 @@ export default function AuthorityMap({ zones, incidents, userLocations, focusLoc
             </Marker>
           );
         })}
+
+        {/* AI Predictive Risk Overlays */}
+        {safePredictions.map((pred) => (
+          <Circle
+            key={pred.id}
+            center={[pred.latitude, pred.longitude]}
+            radius={pred.radius_meters}
+            pathOptions={{
+              color: '#FF00A2', // Neon magenta for "AI" vibe
+              fillColor: '#FF00A2',
+              fillOpacity: 0.25,
+              weight: 2,
+              className: 'pulse-map-circle' // Custom CSS class for pulse
+            }}
+          >
+            <Popup>
+              <div style={{ maxWidth: 200, fontFamily: "'Space Grotesk', sans-serif" }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <div style={{ background: '#FF00A2', color: '#fff', fontSize: 10, padding: '2px 6px', fontWeight: 800, textTransform: 'uppercase' }}>AI Predicted</div>
+                  <span style={{ fontSize: 14, fontWeight: 800 }}>{pred.confidence}% Risk</span>
+                </div>
+                <p style={{ fontSize: 12, margin: 0, color: '#333', fontWeight: 500 }}>{pred.reason}</p>
+              </div>
+            </Popup>
+          </Circle>
+        ))}
 
         <DrawControl onZoneCreated={onZoneCreated} />
       </MapContainer>

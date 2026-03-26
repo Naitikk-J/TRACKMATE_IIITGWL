@@ -30,20 +30,25 @@ export default function AuthorityDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   // Filter state for isolating a single user
   const [filteredUser, setFilteredUser] = useState<string | null>(null);
+  // AI Heatmap State
+  const [predictions, setPredictions] = useState<any[]>([]);
+  const [showHeatmap, setShowHeatmap] = useState(false);
 
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const [incidentsRes, summaryRes, zonesRes, locationsRes] = await Promise.all([
+      const [incidentsRes, summaryRes, zonesRes, locationsRes, predRes] = await Promise.all([
         api.get('/incidents?limit=10'), 
         api.get('/analytics/summary'), 
         api.get('/zones'),
-        api.get('/locations/all')
+        api.get('/locations/all'),
+        api.get('/analytics/predictive').catch(() => ({ data: { success: false } })) // Failsafe
       ]);
       
       if (incidentsRes.data.success) setIncidents(incidentsRes.data.data);
       if (summaryRes.data.success) setSummary(summaryRes.data.data);
       if (zonesRes.data.success) setZones(zonesRes.data.data);
+      if (predRes.data.success) setPredictions(predRes.data.data);
       
       if (locationsRes.data.success) {
         const locMap: any = {};
@@ -152,6 +157,12 @@ export default function AuthorityDashboard() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
+            <button 
+              onClick={() => setShowHeatmap(!showHeatmap)} 
+              style={{ background: showHeatmap ? '#FF00A2' : NB.white, color: showHeatmap ? NB.white : NB.black, border: `3px solid ${NB.black}`, boxShadow: `3px 3px 0 ${NB.black}`, padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit', fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase' }}
+            >
+              <Zap size={14} color={showHeatmap ? NB.white : '#FF00A2'} /> AI Heatmap
+            </button>
             <button onClick={fetchDashboardData} style={{ background: NB.white, border: `3px solid ${NB.black}`, boxShadow: `3px 3px 0 ${NB.black}`, padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit', fontWeight: 700, fontSize: '0.78rem', textTransform: 'uppercase' }}>
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
             </button>
@@ -190,6 +201,7 @@ export default function AuthorityDashboard() {
               userLocations={filteredLocations} 
               focusLocation={focusLocation}
               onZoneCreated={handleZoneCreated}
+              predictions={showHeatmap ? predictions : []}
             />
             {/* Search overlay & Clear filter */}
             <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 400, width: 240, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -216,7 +228,7 @@ export default function AuthorityDashboard() {
             {/* Legend */}
             <div style={{ position: 'absolute', bottom: 12, left: 12, zIndex: 400, background: NB.white, border: `2px solid ${NB.black}`, boxShadow: `3px 3px 0 ${NB.black}`, padding: '10px 14px' }}>
               <div style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Map Legend</div>
-              {[{ color: NB.blue, label: 'Resident (Live)' }, { color: NB.mint, label: 'Tourist (Live)' }, { color: NB.red, label: 'Active Incident' }, { color: '#FF0033', label: 'High Risk Zone', opacity: 0.5 }].map((l, i) => (
+              {[{ color: NB.blue, label: 'Resident (Live)' }, { color: NB.mint, label: 'Tourist (Live)' }, { color: NB.red, label: 'Active Incident' }, { color: '#FF0033', label: 'High Risk Zone', opacity: 0.5 }, ...(showHeatmap ? [{ color: '#FF00A2', label: 'AI Risk Prediction', opacity: 0.8 }] : [])].map((l, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.75rem', fontWeight: 600, marginBottom: 4, color: NB.black }}>
                   <div style={{ width: 10, height: 10, background: l.color, border: `1.5px solid ${NB.black}`, opacity: l.opacity || 1 }} />
                   {l.label}

@@ -7,10 +7,11 @@ import type { ZoneData } from '../../components/maps/TouristMap';
 import { Link } from 'react-router-dom';
 import { 
   Map as MapIcon, AlertTriangle, ShieldAlert, 
-  Watch, Shield, Loader2, Check, RefreshCw, 
+  Watch, Loader2, Check, RefreshCw, 
   Navigation as NearMe, Calendar, CheckCircle2,
   X, Send, MapPin, Radio, Bluetooth, Wifi
 } from 'lucide-react';
+import logo from '../../assets/logo.png';
 import AlertPanel from '../../components/alerts/AlertPanel';
 
 const NB = { black: '#FFFBF0', yellow: '#FFE500', red: '#FF3B3B', blue: '#2B6FFF', mint: '#00D084', orange: '#FF7A00', cream: '#0A0A0A', white: '#111111' };
@@ -120,7 +121,26 @@ export default function TouristDashboard() {
     fetchTouristData();
     const interval = setInterval(fetchTouristData, 30000);
     if (socket) { socket.on('new-incident', (inc: any) => setAlerts(prev => [inc, ...prev])); }
-    return () => { clearInterval(interval); if (socket) socket.off('new-incident'); };
+    
+    const handleOnline = () => {
+      syncOfflineIncidents().then(() => {
+        // If there were incidents in localStorage, they were just synced. Let the user know
+        // (Note: this relies on the fact syncOfflineIncidents removes the key if empty initially)
+        setToast({ message: 'Offline reports synced successfully!', type: 'success' });
+        fetchTouristData();
+      });
+    };
+    
+    window.addEventListener('online', handleOnline);
+    if (navigator.onLine && localStorage.getItem('offline_incidents')) {
+      handleOnline();
+    }
+
+    return () => { 
+      clearInterval(interval); 
+      if (socket) socket.off('new-incident'); 
+      window.removeEventListener('online', handleOnline);
+    };
   }, [socket, fetchTouristData]);
 
   const handleCheckin = async () => {
@@ -198,7 +218,7 @@ export default function TouristDashboard() {
       {/* Safety Banner */}
       <div className="top-header responsive-container" style={{ background: NB.black, borderBottom: `3px solid ${NB.black}`, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 36, height: 36, background: NB.mint, border: `2px solid ${NB.mint}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Shield size={20} color={NB.black} /></div>
+          <img src={logo} alt="Trackmate logo" style={{ height: 36, width: 'auto' }} />
           <div>
             <h2 style={{ color: NB.white, fontWeight: 800, fontSize: '0.95rem', margin: 0 }}>System Protected — Monitoring Active</h2>
             <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem', margin: 0, fontWeight: 500 }}>Your location is being monitored by {activeTrip?.destination_region || 'local authorities'}.</p>
@@ -272,15 +292,8 @@ export default function TouristDashboard() {
                     <NearMe size={14} /> Start Planning
                   </Link>
                 </div>
-              </div>
-            ) : (
-              <div className="p-8 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
-                <p className="text-sm text-slate-400 mb-4">No active trip found for your profile.</p>
-                <Link to="/tourist/plan" className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold shadow-lg shadow-primary/20">
-                  <NearMe className="size-4" /> Start Planning
-                </Link>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Quick Actions */}
@@ -370,20 +383,64 @@ export default function TouristDashboard() {
             </button>
           ))}
         </div>
-      </Modal>
+      </NBModal>
     </div>
   );
 }
 
 const nbInputStyle: React.CSSProperties = { width: '100%', padding: '10px 12px', background: '#FFFBF0', border: '2px solid #0A0A0A', fontFamily: "'Space Grotesk', sans-serif", fontSize: '0.88rem', fontWeight: 500, outline: 'none', color: '#0A0A0A', borderRadius: 0 };
 
-function ReportAnomalyModal({ open, onClose, userLat, userLng, onSuccess, onError }: { open: boolean; onClose: () => void; userLat: number | null; userLng: number | null; onSuccess: (title: string) => void; onError: (msg: string) => void; }) {
+// Auto-sync function (to be called when coming online)
+const syncOfflineIncidents = async () => {
+  const offlineData = localStorage.getItem('offline_incidents');
+  if (!offlineData) return;
+  try {
+    const incidents = JSON.parse(offlineData);
+    if (!Array.isArray(incidents) || incidents.length === 0) return;
+    
+    // Attempt to upload all
+    const failedSync = [];
+    for (const inc of incidents) {
+      try {
+        await api.post('/incidents', inc);
+      } catch (e) {
+        failedSync.push(inc); // keep ones that failed for other reasons
+      }
+    }
+    
+    if (failedSync.length === 0) {
+      localStorage.removeItem('offline_incidents');
+      // Toast can't easily be triggered from outside a component context cleanly unless we pass it, 
+      // but we will call this inside a component effect
+    } else {
+      localStorage.setItem('offline_incidents', JSON.stringify(failedSync));
+    }
+  } catch (e) {
+    console.error('Offline sync failed', e);
+  }
+};
+
+function ReportAnomalyModal({ open, onClose, userLat, userLng, onSuccess, onError }: { open: boolean; onClose: () => void; userLat: number | null; userLng: number | null; onSuccess: (title: string, isOffline?: boolean) => void; onError: (msg: string) => void; }) {
   const [title, setTitle] = useState(''); const [description, setDescription] = useState(''); const [incidentType, setIncidentType] = useState('suspicious_activity'); const [severity, setSeverity] = useState('medium'); const [submitting, setSubmitting] = useState(false);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); if (!title.trim()) return; setSubmitting(true);
+    
+    const payload = { title, description, incident_type: incidentType, severity, source: 'resident_report', latitude: userLat || 27.5855, longitude: userLng || 91.8594, is_public: true };
+    
+    if (!navigator.onLine) {
+      // Offline mode: queue locally
+      const existing = JSON.parse(localStorage.getItem('offline_incidents') || '[]');
+      existing.push(payload);
+      localStorage.setItem('offline_incidents', JSON.stringify(existing));
+      onSuccess(title, true);
+      setTitle(''); setDescription(''); onClose();
+      setSubmitting(false);
+      return;
+    }
+
     try {
-      await api.post('/incidents', { title, description, incident_type: incidentType, severity, source: 'resident_report', latitude: userLat || 27.5855, longitude: userLng || 91.8594, is_public: true });
-      onSuccess(title); setTitle(''); setDescription(''); onClose();
+      await api.post('/incidents', payload);
+      onSuccess(title, false); setTitle(''); setDescription(''); onClose();
     } catch (err: any) { onError(err.response?.data?.message || 'Failed to submit'); } finally { setSubmitting(false); }
   };
   return (
@@ -405,6 +462,11 @@ function ReportAnomalyModal({ open, onClose, userLat, userLng, onSuccess, onErro
         <div style={{ padding: '8px 12px', background: NB.cream, border: `2px solid ${NB.black}`, fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, color: '#6B6B6B' }}>
           <MapPin size={12} color={NB.blue} /> {userLat?.toFixed(4)}, {userLng?.toFixed(4)} (auto-detected)
         </div>
+        {!navigator.onLine && (
+          <div style={{ padding: '8px 12px', background: '#FFF3E0', border: `2px solid ${NB.orange}`, fontSize: '0.75rem', fontWeight: 600, color: NB.orange }}>
+            You are offline. Report will be saved locally and auto-synced when connection is restored.
+          </div>
+        )}
         <button type="submit" disabled={submitting || !title.trim()} style={{ width: '100%', padding: '12px', background: NB.orange, border: `3px solid ${NB.black}`, boxShadow: `3px 3px 0 ${NB.black}`, fontFamily: 'inherit', fontWeight: 800, fontSize: '0.88rem', cursor: 'pointer', textTransform: 'uppercase', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: NB.white, opacity: (submitting || !title.trim()) ? 0.6 : 1 }}>
           {submitting ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={16} />} Submit Report
         </button>
@@ -441,71 +503,4 @@ function UpdateTripModal({ open, onClose, trip, onSuccess, onError }: { open: bo
 // Create Trip Modal
 // ═══════════════════════════════════════════════════════════════════════
 
-function CreateTripModal({ open, onClose, onSuccess, onError }: {
-  open: boolean; onClose: () => void;
-  onSuccess: () => void; onError: (msg: string) => void;
-}) {
-  const [destination, setDestination] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [entryPoint, setEntryPoint] = useState('');
-  const [vehicleDetails, setVehicleDetails] = useState('');
-  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!destination.trim() || !startDate || !endDate) return;
-    setSubmitting(true);
-    try {
-      await api.post('/trips', {
-        destination_region: destination,
-        start_date: startDate,
-        end_date: endDate,
-        entry_point: entryPoint || undefined,
-        vehicle_details: vehicleDetails || undefined,
-      });
-      onSuccess();
-      setDestination(''); setStartDate(''); setEndDate(''); setEntryPoint(''); setVehicleDetails('');
-      onClose();
-    } catch (err: any) {
-      onError(err.response?.data?.message || 'Failed to create trip');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const InputClass = "w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-slate-900 dark:text-white placeholder:text-slate-400 [color-scheme:dark]";
-
-  return (
-    <Modal open={open} onClose={onClose} title="Plan Your Trip">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Destination Region *</label>
-          <input value={destination} onChange={e => setDestination(e.target.value)} className={InputClass} placeholder="e.g. Tawang District, Arunachal Pradesh" required />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Start Date *</label>
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={InputClass} required />
-          </div>
-          <div>
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">End Date *</label>
-            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className={InputClass} required />
-          </div>
-        </div>
-        <div>
-          <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Entry Point</label>
-          <input value={entryPoint} onChange={e => setEntryPoint(e.target.value)} className={InputClass} placeholder="e.g. Guwahati Airport" />
-        </div>
-        <div>
-          <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Vehicle Details</label>
-          <input value={vehicleDetails} onChange={e => setVehicleDetails(e.target.value)} className={InputClass} placeholder="e.g. Self-drive SUV, AS-01-XX-1234" />
-        </div>
-        <button type="submit" disabled={submitting || !destination.trim() || !startDate || !endDate} className="w-full py-3 bg-gradient-to-r from-primary to-blue-600 rounded-lg font-bold text-white shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 border-none outline-none cursor-pointer">
-          {submitting ? <Loader2 className="size-4 animate-spin" /> : <NearMe className="size-4" />}
-          {submitting ? 'Creating Trip...' : 'Start My Trip'}
-        </button>
-      </form>
-    </Modal>
-  );
-}

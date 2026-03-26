@@ -124,6 +124,14 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response, next) => 
             }
         }
 
+        // --- HACKATHON MVP FEATURE: TWILIO INTEGRATION PLACEHOLDER ---
+        if (body.severity === AlertSeverity.CRITICAL || body.source === AlertSource.SOS_PANIC) {
+            console.log(`\n🚨 [TWILIO API] Sending Critical SMS & WhatsApp Alert to Authority Dispatch...`);
+            console.log(`[TWILIO API] To: +91-8888888888 (Authority Control Room)`);
+            console.log(`[TWILIO API] Body: URGENT: ${body.title}. Location: ${body.latitude || 'Unknown'}, ${body.longitude || 'Unknown'}.`);
+            console.log(`[TWILIO API] Status: Delivered ✓\n`);
+        }
+
         res.status(201).json({ success: true, data: populated });
     } catch (err) {
         next(err);

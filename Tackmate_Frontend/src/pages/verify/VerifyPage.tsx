@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Shield, CheckCircle2, XCircle, ArrowLeft, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, ArrowLeft, Loader2 } from 'lucide-react';
+import logo from '../../assets/logo.png';
 import api from '../../lib/api';
 
 const NB = { black: '#FFFBF0', yellow: '#FFE500', red: '#FF3B3B', blue: '#2B6FFF', mint: '#00D084', orange: '#FF7A00', cream: '#0A0A0A', white: '#111111' };
@@ -38,9 +39,7 @@ export default function VerifyPage() {
         
         <div style={{ background: NB.white, border: `4px solid ${NB.black}`, boxShadow: `8px 8px 0 ${NB.black}`, padding: 32, position: 'relative' }}>
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <div style={{ margin: '0 auto 16px', width: 64, height: 64, background: NB.yellow, border: `3px solid ${NB.black}`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `4px 4px 0 ${NB.black}` }}>
-              <Shield size={32} color={NB.black} />
-            </div>
+            <img src={logo} alt="Trackmate logo" style={{ height: 48, width: 'auto', marginBottom: 16 }} />
             <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: NB.black, margin: '0 0 8px', textTransform: 'uppercase' }}>Trackmate ID</h1>
             <p style={{ margin: 0, fontWeight: 700, fontSize: '0.85rem', color: '#666', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Blockchain Identity Lookup</p>
           </div>

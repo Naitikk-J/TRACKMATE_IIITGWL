@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="manifest" href="/manifest.json" />
     <title>Trackmate | Unified Civic Safety Operating System</title>
     
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
@@ -43,6 +44,16 @@
         .glow-amber { box-shadow: 0 0 40px -10px rgba(245, 158, 11, 0.3); }
         .glow-purple { box-shadow: 0 0 40px -10px rgba(168, 85, 247, 0.3); }
         .feature-icon-gradient { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        @keyframes mapPulse {
+            0% { opacity: 0.2; transform: scale(0.95); }
+            50% { opacity: 0.4; transform: scale(1.05); }
+            100% { opacity: 0.2; transform: scale(0.95); }
+        }
+        .pulse-map-circle path {
+            animation: mapPulse 2s ease-in-out infinite;
+            transform-origin: center;
+        }
     </style>
   </head>
   <body class="bg-background-dark text-slate-100 selection:bg-primary selection:text-white">

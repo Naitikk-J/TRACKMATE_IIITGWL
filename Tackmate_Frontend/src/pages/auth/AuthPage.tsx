@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '../../context/AuthContext';
+import api from '../../lib/api';
 import { loginSchema, touristRegisterSchema, residentRegisterSchema, businessRegisterSchema, authorityRegisterSchema } from './schemas';
 import { Loader2, Copy, Check, Fingerprint, ArrowRight, Shield, Map, Users, Building2 } from 'lucide-react';
+import logo from '../../assets/logo.png';
 
 const NB = {
   black: '#0A0A0A', yellow: '#FFE500', red: '#FF3B3B',
@@ -24,12 +26,19 @@ export default function AuthPage() {
 
   const [mode, setMode] = useState<'login' | 'register'>('register');
   const [role, setRole] = useState(initRole);
+  const [wards, setWards] = useState<any[]>([]);
   const [blockchainId, setBlockchainId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   const { login, register: authRegister } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    api.get('/wards').then(res => {
+      if (res.data.success) setWards(res.data.data);
+    }).catch(() => {});
+  }, []);
 
   const handleCopy = () => {
     if (blockchainId) {
@@ -41,7 +50,10 @@ export default function AuthPage() {
 
   const onLogin = async (data: any) => {
     try { setErrorMsg(''); const user = await login(data.email, data.password); navigate(`/${user.role}/dashboard`); }
-    catch (err: any) { setErrorMsg(err.response?.data?.message || 'Login failed'); }
+    catch (err: any) {
+      if (!err.response) { setErrorMsg('Cannot connect to server. Please ensure the backend is running and try again.'); }
+      else { setErrorMsg(err.response?.data?.message || 'Login failed'); }
+    }
   };
 
   const onRegister = async (data: any) => {
@@ -52,7 +64,10 @@ export default function AuthPage() {
       delete payload.confirm_password;
       const { blockchainId: newBcId } = await authRegister(payload);
       setBlockchainId(newBcId);
-    } catch (err: any) { setErrorMsg(err.response?.data?.message || 'Registration failed'); }
+    } catch (err: any) {
+      if (!err.response) { setErrorMsg('Cannot connect to server. Please ensure the backend is running and try again.'); }
+      else { setErrorMsg(err.response?.data?.message || 'Registration failed'); }
+    }
   };
 
   // ── Blockchain ID success screen ──
@@ -102,9 +117,7 @@ export default function AuthPage() {
       {/* Nav */}
       <header style={{ background: NB.black, borderBottom: `4px solid ${NB.black}`, padding: '0 5%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 60 }}>
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-          <div style={{ width: 32, height: 32, background: NB.yellow, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Shield size={18} color={NB.black} />
-          </div>
+          <img src={logo} alt="Trackmate logo" style={{ height: 36, width: 'auto' }} />
           <span style={{ color: NB.white, fontWeight: 800, fontSize: '1rem', letterSpacing: '0.04em' }}>
             TRACK<span style={{ color: NB.yellow }}>MATE</span>
           </span>
@@ -162,7 +175,7 @@ export default function AuthPage() {
                     ))}
                   </div>
                 </div>
-                <RegisterForm key={role} role={role} onSubmit={onRegister} />
+                <RegisterForm key={role} role={role} wards={wards} onSubmit={onRegister} />
               </>
             )}
           </div>
@@ -210,7 +223,7 @@ function LoginForm({ onSubmit }: { onSubmit: (data: any) => void }) {
   );
 }
 
-function RegisterForm({ role, onSubmit }: { role: string; onSubmit: (data: any) => void }) {
+function RegisterForm({ role, wards, onSubmit }: { role: string; wards: any[]; onSubmit: (data: any) => void }) {
   const schema = { tourist: touristRegisterSchema, resident: residentRegisterSchema, business: businessRegisterSchema, authority: authorityRegisterSchema }[role];
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(schema as any) });
 
@@ -240,7 +253,15 @@ function RegisterForm({ role, onSubmit }: { role: string; onSubmit: (data: any) 
       {role === 'resident' && (
         <div style={sectionBoxStyle}>
           <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12, color: '#00D084' }}>Resident Details</div>
-          <div><label style={labelStyle}>Ward ID</label><input {...register('ward_id')} style={inputStyle} placeholder="Enter your Ward ID" /><p style={{ fontSize: '0.75rem', color: '#6B6B6B', marginTop: 4, fontWeight: 500 }}>Links you to neighbourhood alerts.</p>{errors.ward_id && <p style={errStyle}>{errors.ward_id.message as string}</p>}</div>
+          <div>
+            <label style={labelStyle}>Assigned Ward</label>
+            <select {...register('ward_id')} style={inputStyle}>
+              <option value="">Select your Ward (Optional)</option>
+              {wards.map(w => <option key={w._id} value={w._id}>{w.name} - {w.district}</option>)}
+            </select>
+            <p style={{ fontSize: '0.75rem', color: '#6B6B6B', marginTop: 4, fontWeight: 500 }}>Links you to local alerts and community vitals.</p>
+            {errors.ward_id && <p style={errStyle}>{errors.ward_id.message as string}</p>}
+          </div>
         </div>
       )}
 
@@ -249,8 +270,25 @@ function RegisterForm({ role, onSubmit }: { role: string; onSubmit: (data: any) 
           <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12, color: '#FF7A00' }}>Business Details</div>
           <div><label style={labelStyle}>Business Name</label><input {...register('business_name')} style={inputStyle} placeholder="Official Name" />{errors.business_name && <p style={errStyle}>{errors.business_name.message as string}</p>}</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
-            <div><label style={labelStyle}>Category</label><select {...register('category')} style={inputStyle}><option value="accommodation">Accommodation</option><option value="food_beverage">Food & Beverage</option><option value="tour_operator">Tour Operator</option></select></div>
-            <div><label style={labelStyle}>Ward ID</label><input {...register('ward_id')} style={inputStyle} placeholder="24-char ID" />{errors.ward_id && <p style={errStyle}>{errors.ward_id.message as string}</p>}</div>
+            <div>
+              <label style={labelStyle}>Category</label>
+              <select {...register('category')} style={inputStyle}>
+                <option value="accommodation">Accommodation</option>
+                <option value="food_beverage">Food & Beverage</option>
+                <option value="transport">Transport</option>
+                <option value="medical">Medical</option>
+                <option value="retail">Retail</option>
+                <option value="tour_operator">Tour Operator</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Operation Ward</label>
+              <select {...register('ward_id')} style={inputStyle}>
+                <option value="">Select Ward (Optional)</option>
+                {wards.map(w => <option key={w._id} value={w._id}>{w.name}</option>)}
+              </select>
+            </div>
           </div>
           <div style={{ marginTop: 12 }}><label style={labelStyle}>Business Address</label><input {...register('address')} style={inputStyle} />{errors.address && <p style={errStyle}>{errors.address.message as string}</p>}</div>
         </div>

@@ -9,6 +9,8 @@ let io: SocketIOServer | null = null;
 const userZoneMap = new Map<string, string | null>();
 // Track last heartbeat per user for offline detection
 const userLastSeen = new Map<string, number>();
+// Track last location update per user for rate limiting (DoS protection)
+const userLocationRateLimit = new Map<string, number>();
 
 export function initSocket(httpServer: HTTPServer): SocketIOServer {
     const corsOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',').map(s => s.trim());
@@ -68,11 +70,31 @@ export function initSocket(httpServer: HTTPServer): SocketIOServer {
         socket.on('location_update', async (data: { userId: string; latitude: number; longitude: number; accuracy?: number; speed?: number; battery?: number }) => {
             try {
                 if (!data || !data.userId) return;
-                userLastSeen.set(data.userId, Date.now());
 
-                // Find which zone this point falls in
-                const zones = await Zone.find({ is_active: true }).lean();
-                const matchingZone = findZoneForPoint(data.latitude, data.longitude, zones as any);
+                // Rate limiting to prevent socket spam / DoS
+                const now = Date.now();
+                const lastUpdate = userLocationRateLimit.get(data.userId) || 0;
+                if (now - lastUpdate < 2000) return; // Drop updates faster than 2 seconds
+                userLocationRateLimit.set(data.userId, now);
+
+                userLastSeen.set(data.userId, now);
+
+                // Optimized geospatial query: Find active zones where this point is within 50km
+                // This prevents loading all zones into memory for O(N) calculation
+                const nearbyZones = await Zone.find({
+                    is_active: true,
+                    location: {
+                        $nearSphere: {
+                            $geometry: {
+                                type: 'Point',
+                                coordinates: [data.longitude, data.latitude]
+                            },
+                            $maxDistance: 50000 // Only check zones within 50km
+                        }
+                    }
+                }).lean();
+                
+                const matchingZone = findZoneForPoint(data.latitude, data.longitude, nearbyZones as any);
                 const currentZoneId = matchingZone ? String(matchingZone._id) : null;
                 const previousZoneId = userZoneMap.get(data.userId) || null;
 

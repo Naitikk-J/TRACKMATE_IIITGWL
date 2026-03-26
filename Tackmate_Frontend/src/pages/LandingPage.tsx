@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Shield, Zap, Map, Users, Building2, Lock, ArrowRight, CheckCircle } from 'lucide-react';
+import logo from '../assets/logo.png';
 
 const NB = {
   black: '#0A0A0A',
@@ -80,13 +81,7 @@ export default function LandingPage() {
         height: 64,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{
-            width: 36, height: 36, background: NB.yellow,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            border: `2px solid ${NB.yellow}`,
-          }}>
-            <Shield size={20} color={NB.black} />
-          </div>
+          <img src={logo} alt="Trackmate logo" style={{ height: 36, width: 'auto' }} />
           <span style={{ color: NB.white, fontWeight: 800, fontSize: '1.1rem', letterSpacing: '0.04em' }}>
             TRACK<span style={{ color: NB.yellow }}>MATE</span>
           </span>
@@ -250,11 +245,11 @@ export default function LandingPage() {
                   textDecoration: 'none', color: NB.black,
                   transition: 'all 0.1s',
                 }}
-                onMouseEnter={(e) => {
+                onMouseEnter={(e: React.MouseEvent<HTMLElement>) => {
                   (e.currentTarget as HTMLElement).style.transform = 'translate(-2px,-2px)';
                   (e.currentTarget as HTMLElement).style.boxShadow = `7px 7px 0 ${NB.black}`;
                 }}
-                onMouseLeave={(e) => {
+                onMouseLeave={(e: React.MouseEvent<HTMLElement>) => {
                   (e.currentTarget as HTMLElement).style.transform = '';
                   (e.currentTarget as HTMLElement).style.boxShadow = `5px 5px 0 ${NB.black}`;
                 }}
@@ -359,9 +354,7 @@ export default function LandingPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 40, marginBottom: 40 }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                <div style={{ width: 32, height: 32, background: NB.yellow, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Shield size={18} color={NB.black} />
-                </div>
+                <img src={logo} alt="Trackmate logo" style={{ height: 32, width: 'auto' }} />
                 <span style={{ color: NB.white, fontWeight: 800, fontSize: '1rem', letterSpacing: '0.04em' }}>
                   TRACK<span style={{ color: NB.yellow }}>MATE</span>
                 </span>

@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Shield, LogOut, Zap } from 'lucide-react';
+import { LogOut, Shield } from 'lucide-react';
+import logo from '../../assets/logo.png';
 
 export default function Header() {
   const { user, logout } = useAuth();
@@ -15,15 +16,7 @@ export default function Header() {
     <header className="top-header">
       {/* Brand */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{
-          width: 36, height: 36,
-          background: '#FFE500',
-          border: '3px solid #0A0A0A',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '2px 2px 0 #0A0A0A',
-        }}>
-          <Zap size={18} color="#0A0A0A" fill="#0A0A0A" />
-        </div>
+        <img src={logo} alt="Trackmate logo" style={{ height: 36, width: 'auto' }} />
         <h2 style={{ fontSize: '1.15rem', margin: 0, fontFamily: "'Space Grotesk', sans-serif", fontWeight: 800, letterSpacing: '0.04em', color: '#0A0A0A' }}>
           TRACK<span style={{ color: '#2B6FFF' }}>MATE</span>
         </h2>

@@ -1,7 +1,7 @@
 import express, { Router, Response } from 'express';
 import { z } from 'zod';
 import jwt from 'jsonwebtoken';
-import { Profile, PlatformConfig, Ward, Trip } from '../models';
+import { Profile, PlatformConfig, Ward, Trip, Business } from '../models';
 import { generateBlockchainId, hashGovernmentId } from '../lib/blockchain';
 import { authenticate } from '../middleware/auth';
 import { authRateLimiter, resetRateLimit } from '../middleware/rateLimiter';
@@ -38,6 +38,9 @@ const residentExtras = z.object({
 });
 
 const businessExtras = z.object({
+    business_name: z.string().min(2, 'Business name required'),
+    category: z.enum(['accommodation', 'food_beverage', 'transport', 'medical', 'retail', 'tour_operator', 'other']),
+    address: z.string().min(5, 'Address required'),
     ward_id: z.string().optional(),
 });
 
@@ -135,6 +138,21 @@ router.post('/register', authRateLimiter, async (req, res: Response, next) => {
                 start_date: new Date(extras.start_date),
                 end_date: new Date(extras.end_date),
                 entry_point: extras.entry_point,
+                is_active: true,
+            });
+        }
+
+        // Business: create business record
+        let business = null;
+        if (base.role === UserRole.BUSINESS && extras.business_name) {
+            business = await Business.create({
+                owner: profile._id,
+                business_name: extras.business_name,
+                category: extras.category,
+                address: extras.address,
+                latitude: 0,
+                longitude: 0,
+                ward: extras.ward_id || undefined,
                 is_active: true,
             });
         }
