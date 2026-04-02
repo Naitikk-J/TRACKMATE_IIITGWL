@@ -1,5 +1,9 @@
 import { useAuth } from '../../context/AuthContext';
+<<<<<<< HEAD
 import { Shield, CheckCircle, Phone, Copy, QrCode, Languages } from 'lucide-react';
+=======
+import { Shield, CheckCircle, Phone, Languages, Copy, QrCode } from 'lucide-react';
+>>>>>>> 59af571c75f3940ab7df0ced3c23f6ffde591a54
 
 const NB = {
   black: '#0A0A0A',
@@ -17,7 +21,11 @@ export default function TouristProfile() {
   const { user } = useAuth();
   
   // Use user's initials
+<<<<<<< HEAD
   const initials = (user as any)?.name ? (user as any).name.split(' ').map((n: string) => n[0]).join('').toUpperCase() : 'RS';
+=======
+  const initials = user?.full_name ? user.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase() : 'RS';
+>>>>>>> 59af571c75f3940ab7df0ced3c23f6ffde591a54
 
   return (
     <div style={{ maxWidth: 1440, margin: '0 auto', padding: '24px', fontFamily: "'Space Grotesk', sans-serif", color: NB.black }}>
@@ -45,7 +53,11 @@ export default function TouristProfile() {
               <span style={{ fontSize: '2.5rem', fontWeight: 900, color: NB.white }}>{initials}</span>
             </div>
             
+<<<<<<< HEAD
             <h2 style={{ fontSize: '1.6rem', fontWeight: 800, margin: '0 0 8px', textAlign: 'center' }}>{(user as any)?.name || 'Raj Sharma'}</h2>
+=======
+            <h2 style={{ fontSize: '1.6rem', fontWeight: 800, margin: '0 0 8px', textAlign: 'center' }}>{user?.full_name || 'Raj Sharma'}</h2>
+>>>>>>> 59af571c75f3940ab7df0ced3c23f6ffde591a54
             
             <div style={{ background: NB.black, color: NB.white, padding: '4px 12px', fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 24 }}>
               {user?.role || 'TOURIST'}
@@ -128,7 +140,11 @@ export default function TouristProfile() {
               <div style={{ position: 'relative', zIndex: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 24 }}>
                 <div style={{ flex: 1, minWidth: 200 }}>
                   <div style={{ fontSize: '0.65rem', fontWeight: 800, color: NB.mint, textTransform: 'uppercase', letterSpacing: '0.2em', marginBottom: 8 }}>TrackMate Protocol</div>
+<<<<<<< HEAD
                   <h4 style={{ fontSize: '2rem', fontWeight: 800, margin: '0 0 24px', letterSpacing: '-0.02em', wordBreak: 'break-word' }}>{(user as any)?.name || 'Raj Sharma'}</h4>
+=======
+                  <h4 style={{ fontSize: '2rem', fontWeight: 800, margin: '0 0 24px', letterSpacing: '-0.02em', wordBreak: 'break-word' }}>{user?.full_name || 'Raj Sharma'}</h4>
+>>>>>>> 59af571c75f3940ab7df0ced3c23f6ffde591a54
                   
                   <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
                     <div>

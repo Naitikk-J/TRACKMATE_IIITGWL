@@ -184,6 +184,7 @@ router.get(
     }
 );
 
+<<<<<<< HEAD
 // ─── AI Predictive Risk Modeling (Mock for Hackathon) ───────────────────
 
 router.get(
@@ -265,13 +266,47 @@ router.get(
 
             // Simple safety score formula: starts at 100, drops per active incident
             const safety_score = Math.max(0, 100 - activeIncidents * 10);
+=======
+// ─── Ward summary analytics ──────────────────────────────────────────
+
+router.get(
+    '/ward/:wardId',
+    authenticate,
+    async (req: AuthRequest, res: Response, next) => {
+        try {
+            const { wardId } = req.params;
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+
+            const [openIncidents, totalIncidents, touristCount, residentCount, activeUsersToday] = await Promise.all([
+                Incident.countDocuments({ ward: wardId, status: { $in: ['active', 'acknowledged', 'assigned', 'escalated'] } }),
+                Incident.countDocuments({ ward: wardId }),
+                Profile.countDocuments({ ward: wardId, role: 'tourist', is_active: true }),
+                Profile.countDocuments({ ward: wardId, role: 'resident', is_active: true }),
+                LocationLog.distinct('user', { recorded_at: { $gte: todayStart } }),
+            ]);
+
+            const baseScore = 100;
+            const penalty = Math.min(openIncidents * 8, 60);
+            const safetyScore = Math.max(0, baseScore - penalty);
+>>>>>>> 59af571c75f3940ab7df0ced3c23f6ffde591a54
 
             res.json({
                 success: true,
                 data: {
+<<<<<<< HEAD
                     safety_score,
                     resident_count: residentCount,
                     tourist_count: activeTourists.length,
+=======
+                    wardId,
+                    open_incidents: openIncidents,
+                    total_incidents: totalIncidents,
+                    tourist_count: touristCount,
+                    resident_count: residentCount,
+                    active_users_today: activeUsersToday.length,
+                    safety_score: safetyScore,
+>>>>>>> 59af571c75f3940ab7df0ced3c23f6ffde591a54
                 },
             });
         } catch (err) {
